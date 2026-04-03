@@ -1,0 +1,11 @@
+<resources>
+    <color name="dp_page_bg">#0E1017</color>
+    <color name="dp_card_bg">#171A23</color>
+    <color name="dp_card_stroke">#2C3342</color>
+    <color name="dp_text_primary">#F5F7FF</color>
+    <color name="dp_text_secondary">#A4AEC7</color>
+    <color name="dp_chip_bg">#25304A</color>
+    <color name="dp_chip_text">#DDE7FF</color>
+    <color name="dp_primary">#7C97FF</color>
+    <color name="dp_primary_dark">#5B73D9</color>
+</resources>

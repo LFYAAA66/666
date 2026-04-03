@@ -1,0 +1,22 @@
+{
+  "projectName": "DouPlusModern",
+  "apiStyle": "LSPosed Modern API",
+  "targetHost": {
+    "packageName": "com.ss.android.ugc.aweme",
+    "versionName": "38.2.0",
+    "versionCode": 380201
+  },
+  "implemented": [
+    "multi-module project structure",
+    "modern api meta-inf xposed entry",
+    "settings/video/comment/ward/chat install chain",
+    "room + datastore + backup skeleton",
+    "github actions build workflow",
+    "current host static analysis bundle"
+  ],
+  "pending": [
+    "real host hook point verification",
+    "resolver accuracy improvement on device",
+    "runtime log driven target correction"
+  ]
+}
