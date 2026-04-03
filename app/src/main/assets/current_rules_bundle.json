@@ -1,0 +1,38 @@
+{
+  "hostPackage": "com.ss.android.ugc.aweme",
+  "versionCode": 380201,
+  "versionName": "38.2.0",
+  "generatedAt": "2026-04-03",
+  "features": {
+    "settings": {
+      "classCandidatesCount": 4,
+      "stringHintsCount": 4,
+      "topClassCandidate": "com.ss.android.ugc.aweme.sidebar.component.collects.flexible.template.CommentCommonSettingsDialog",
+      "topStringHint": "模块设置"
+    },
+    "video": {
+      "classCandidatesCount": 4,
+      "stringHintsCount": 5,
+      "topClassCandidate": "com.ss.android.ugc.aweme.feed.model.player.OVideoPlayerModel",
+      "topStringHint": "发布时间"
+    },
+    "comment": {
+      "classCandidatesCount": 4,
+      "stringHintsCount": 5,
+      "topClassCandidate": "com.ss.android.ugc.aweme.comment.ui.longpress.CommentLongPressDialog",
+      "topStringHint": "评论时间"
+    },
+    "ward": {
+      "classCandidatesCount": 3,
+      "stringHintsCount": 3,
+      "topClassCandidate": "com.ss.android.ugc.aweme.feed.quick.presenter.FeedBottomActionPresenter",
+      "topStringHint": "插眼"
+    },
+    "chat": {
+      "classCandidatesCount": 3,
+      "stringHintsCount": 3,
+      "topClassCandidate": "com.ss.android.ugc.aweme.im.sdk.chat.viewmodel.ChatRoomViewModel",
+      "topStringHint": "消息时间"
+    }
+  }
+}

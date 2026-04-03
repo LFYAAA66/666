@@ -1,0 +1,15 @@
+{
+  "apkName": "app-debug.apk",
+  "legacyEntry": "assets/xposed_init",
+  "legacyInitClass": "io.kazutoiris.mrga.HookEntry_YukiHookXposedInit",
+  "detectedNamespaces": [
+    "io.kazutoiris.mrga"
+  ],
+  "detectedKeywords": [
+    "YukiHookAPI",
+    "YukiXposedModule",
+    "YukiHookPrefsBridge",
+    "YukiResourcesHookCreator"
+  ],
+  "summary": "该参考 APK 采用旧式 xposed_init + YukiHookAPI 路线，可参考 UI、功能分组、宿主场景，但不应直接作为 LSPosed Modern API 工程模板。"
+}

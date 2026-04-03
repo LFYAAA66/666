@@ -1,0 +1,11 @@
+
+.gradle/
+local.properties
+*.iml
+/.idea/
+/build/
+**/build/
+/captures/
+.DS_Store
+artifacts/
+scripts/ci/sdk-packages.txt

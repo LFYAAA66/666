@@ -1,48 +1,137 @@
-name: Android APK Build
+
+name: DouPlus Modern Build
 
 on:
   workflow_dispatch:
+    inputs:
+      build_release:
+        description: "是否构建 Release（需要签名 secrets）"
+        required: true
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+      libxposed_strategy:
+        description: "libxposed 依赖策略"
+        required: true
+        type: choice
+        options: ["local-stub", "bundled-aar", "local-maven", "remote-download"]
+        default: "local-stub"
+      libxposed_remote_aar_url:
+        description: "remote-download 时的 AAR 下载地址"
+        required: false
+        default: ""
   push:
-    branches: [ main, master ]
+    branches: ["main", "master"]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: douplus-modern-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ARTIFACT_DIR: artifacts
+  DEFAULT_ANDROID_COMPILE_SDK: "34"
+  DEFAULT_ANDROID_BUILD_TOOLS: "34.0.0"
+  DEFAULT_GRADLE_VERSION: "8.7"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8"
+
 jobs:
-  build-apk:
+  build_debug:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
-          cache: gradle
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.7
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew || true
-
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
-
-      - name: Verify Modern API files
+          gradle-version: ${{ env.DEFAULT_GRADLE_VERSION }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "tools platform-tools"
+          log-accepted-android-sdk-licenses: "false"
+      - name: Prepare dirs
+        run: mkdir -p "$ARTIFACT_DIR/logs" "$ARTIFACT_DIR/meta" "$ARTIFACT_DIR/apk" "$ARTIFACT_DIR/reports"
+      - name: Verify Modern API entry files
+        run: bash scripts/ci/verify_xposed_entry.sh | tee "$ARTIFACT_DIR/logs/verify_xposed_entry.log"
+      - name: Resolve SDK packages
+        run: bash scripts/ci/resolve_android_sdk_packages.sh "${{ env.DEFAULT_ANDROID_COMPILE_SDK }}" "${{ env.DEFAULT_ANDROID_BUILD_TOOLS }}" | tee "$ARTIFACT_DIR/logs/resolve_android_sdk_packages.log"
+      - name: Install SDK packages
+        run: bash scripts/ci/install_android_sdk_packages.sh | tee "$ARTIFACT_DIR/logs/install_android_sdk_packages.log"
+      - name: Prepare libxposed
+        env:
+          LIBXPOSED_STRATEGY: ${{ inputs.libxposed_strategy || 'local-stub' }}
+          LIBXPOSED_REMOTE_AAR_URL: ${{ inputs.libxposed_remote_aar_url }}
+        run: bash scripts/ci/prepare_libxposed.sh | tee "$ARTIFACT_DIR/logs/prepare_libxposed.log"
+      - name: Build debug
+        run: gradle :app:assembleDebug --stacktrace --info | tee "$ARTIFACT_DIR/logs/assembleDebug.log"
+      - name: Verify apk contents
+        run: bash scripts/ci/verify_apk_contents.sh debug | tee "$ARTIFACT_DIR/logs/verify_apk_contents.log"
+      - name: Collect outputs
         run: |
-          test -f app/src/main/resources/META-INF/xposed/java_init.list
-          test -f app/src/main/resources/META-INF/xposed/scope.list
-          test -f app/src/main/resources/META-INF/xposed/module.prop
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+          cp -v app/src/main/resources/META-INF/xposed/* "$ARTIFACT_DIR/meta/" || true
+          cp -v app/build/outputs/apk/debug/*.apk "$ARTIFACT_DIR/apk/" || true
+          if [ -d docs/host-analysis ]; then cp -rv docs/host-analysis "$ARTIFACT_DIR/reports/"; fi
+          if [ -d rules ]; then cp -rv rules "$ARTIFACT_DIR/reports/"; fi
+      - uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: douplus-debug-${{ github.sha }}
+          path: artifacts/**
+          if-no-files-found: error
+          retention-days: 7
+
+  build_release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_release == 'true' && secrets.KEYSTORE_BASE64 != '' }}
+    runs-on: ubuntu-latest
+    needs: build_debug
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.DEFAULT_GRADLE_VERSION }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "tools platform-tools"
+          log-accepted-android-sdk-licenses: "false"
+      - name: Prepare dirs
+        run: mkdir -p "$ARTIFACT_DIR/logs" "$ARTIFACT_DIR/meta" "$ARTIFACT_DIR/apk" "$ARTIFACT_DIR/signing"
+      - name: Mask secrets
+        run: |
+          echo "::add-mask::${{ secrets.KEYSTORE_PASSWORD }}"
+          echo "::add-mask::${{ secrets.KEY_ALIAS }}"
+          echo "::add-mask::${{ secrets.KEY_PASSWORD }}"
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$ARTIFACT_DIR/signing/release.jks"
+      - name: Resolve SDK packages
+        run: bash scripts/ci/resolve_android_sdk_packages.sh "${{ env.DEFAULT_ANDROID_COMPILE_SDK }}" "${{ env.DEFAULT_ANDROID_BUILD_TOOLS }}" | tee "$ARTIFACT_DIR/logs/resolve_android_sdk_packages_release.log"
+      - name: Install SDK packages
+        run: bash scripts/ci/install_android_sdk_packages.sh | tee "$ARTIFACT_DIR/logs/install_android_sdk_packages_release.log"
+      - name: Prepare libxposed
+        env:
+          LIBXPOSED_STRATEGY: ${{ inputs.libxposed_strategy || 'local-stub' }}
+          LIBXPOSED_REMOTE_AAR_URL: ${{ inputs.libxposed_remote_aar_url }}
+        run: bash scripts/ci/prepare_libxposed.sh | tee "$ARTIFACT_DIR/logs/prepare_libxposed_release.log"
+      - name: Build release
+        run: |
+          gradle :app:assembleRelease                 -Pandroid.injected.signing.store.file="$PWD/$ARTIFACT_DIR/signing/release.jks"                 -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}"                 -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}"                 -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"                 --stacktrace --info | tee "$ARTIFACT_DIR/logs/assembleRelease.log"
+      - name: Verify apk contents
+        run: bash scripts/ci/verify_apk_contents.sh release | tee "$ARTIFACT_DIR/logs/verify_apk_contents_release.log"
+      - name: Verify signature
+        run: |
+          APK=$(ls -1 app/build/outputs/apk/release/*.apk | head -n 1)
+          APKSIGNER="$ANDROID_HOME/build-tools/${DEFAULT_ANDROID_BUILD_TOOLS}/apksigner"
+          "$APKSIGNER" verify --verbose "$APK" | tee "$ARTIFACT_DIR/logs/apksigner_verify.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: douplus-release-${{ github.sha }}
+          path: artifacts/**
+          if-no-files-found: error
+          retention-days: 7
